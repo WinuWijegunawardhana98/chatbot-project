@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot</title>
+    <!-- Materialize CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        #chatbox {
+            background-color: white;
+            border-radius: 10px;
+            height: 400px;
+            overflow-y: auto;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .user-message, .bot-message {
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+
+        .user-message {
+            background-color: #1976D2;
+            color: white;
+            text-align: right;
+            margin-left: auto;
+        }
+
+        .bot-message {
+            background-color: #e0e0e0;
+            color: black;
+            text-align: left;
+            margin-right: auto;
+        }
+
+        .typing {
+            font-style: italic;
+            color: #888;
+        }
+
+        /* Dark Mode */
+        body.dark-mode {
+            background-color: #121212;
+            color: white;
+        }
+
+        #chatbox.dark-mode {
+            background-color: #2C2C2C;
+        }
+
+        .user-message.dark-mode {
+            background-color: #4CAF50;
+        }
+
+        .bot-message.dark-mode {
+            background-color: #424242;
+        }
+
+        .light-theme .switch label {
+            color: #1a73e8;
+        }
+
+        .dark-theme .switch label {
+            color: #bb86fc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="center-align">Chatbot with Voice and Theme</h1>
+        
+        <!-- Theme Toggle -->
+        <div class="switch">
+            <label>
+                Light
+                <input type="checkbox" id="themeToggle">
+                <span class="lever"></span>
+                Dark
+            </label>
+        </div>
+        
+        <div id="chatbox" class="mb-3"></div>
+
+        <div class="input-field">
+            <input type="text" id="userInput" class="validate" placeholder="Type or speak your message...">
+            <select id="languageSelect" class="browser-default">
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="it">Italian</option>
+            </select>
+        </div>
+        
+        <div class="d-flex">
+            <button class="btn waves-effect waves-light" onclick="sendMessage()">Send</button>
+            <button class="btn waves-effect waves-light" onclick="startVoiceInput()">🎤</button>
+        </div>
+    </div>
+
+    <!-- Materialize JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script>
+        // For speech recognition
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = 'en-US'; // You can adjust this to match user language
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        // Start voice input
+        function startVoiceInput() {
+            recognition.start();
+            recognition.onresult = function(event) {
+                const userInput = event.results[0][0].transcript;
+                document.getElementById("userInput").value = userInput;
+                sendMessage();
+            };
+            recognition.onerror = function(event) {
+                console.error("Speech recognition error:", event.error);
+            };
+        }
+
+        // For speech synthesis (voice output)
+        function speakMessage(message) {
+            const utterance = new SpeechSynthesisUtterance(message);
+            speechSynthesis.speak(utterance);
+        }
+
+        // Send message to bot and get response
+        async function sendMessage() {
+            const userInput = document.getElementById("userInput").value;
+            const language = document.getElementById("languageSelect").value;
+            if (!userInput) return;
+
+            // Display user's message
+            const chatbox = document.getElementById("chatbox");
+            const userMessageDiv = document.createElement("div");
+            userMessageDiv.className = "user-message";
+            userMessageDiv.textContent = userInput;
+            chatbox.appendChild(userMessageDiv);
+
+            // Clear the input field
+            document.getElementById("userInput").value = "";
+
+            // Scroll to the bottom
+            chatbox.scrollTop = chatbox.scrollHeight;
+
+            // Add typing animation for bot
+            const typingDiv = document.createElement("div");
+            typingDiv.className = "bot-message typing";
+            typingDiv.textContent = "Bot is typing...";
+            chatbox.appendChild(typingDiv);
+
+            // Scroll to the bottom
+            chatbox.scrollTop = chatbox.scrollHeight;
+
+            // Fetch the bot's response
+            const response = await fetch("/get", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ message: userInput, language: language }),
+            });
+
+            const data = await response.json();
+
+            // Remove the typing animation and show bot's message
+            typingDiv.remove();
+            const botMessageDiv = document.createElement("div");
+            botMessageDiv.className = "bot-message";
+            botMessageDiv.textContent = data.reply;
+            chatbox.appendChild(botMessageDiv);
+
+            // Scroll to the bottom
+            chatbox.scrollTop = chatbox.scrollHeight;
+
+            // Speak the bot's response
+            speakMessage(data.reply);
+        }
+
+        // Theme toggle functionality
+        const themeToggle = document.getElementById("themeToggle");
+        themeToggle.addEventListener("change", function() {
+            document.body.classList.toggle("dark-mode", themeToggle.checked);
+            document.getElementById("chatbox").classList.toggle("dark-mode", themeToggle.checked);
+            const messages = document.querySelectorAll(".user-message, .bot-message");
+            messages.forEach(msg => {
+                msg.classList.toggle("dark-mode", themeToggle.checked);
+            });
+        });
+    </script>
+</body>
+</html>
